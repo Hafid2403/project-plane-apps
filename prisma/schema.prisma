@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleUser {
+  CUSTOMER
+  ADMIN
+}
+
+enum TypeSeat {
+  ECONOMY
+  BUSINESS
+  FIRST
+}
+
+enum StatusTicket {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ---------- Better Auth ----------
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  passport      String?
+  role          RoleUser  @default(CUSTOMER)
+  sessions      Session[]
+  accounts      Account[]
+  tickets       Ticket[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------- Aplikasi ----------
+model Airplane {
+  id     String   @id @default(cuid())
+  code   String   @default("ABC-123")
+  name   String
+  image  String
+  flight Flight[]
+}
+
+model Flight {
+  id                  String       @id @default(cuid())
+  planeId             String
+  plane               Airplane     @relation(fields: [planeId], references: [id])
+  departureDate       DateTime
+  departureCity       String
+  departureCityCode   String
+  arrivalDate         DateTime
+  destinationCity     String
+  destinationCityCode String
+  price               Int
+  seats               FlightSeat[]
+  tickets             Ticket[]
+}
+
+model FlightSeat {
+  id         String   @id @default(cuid())
+  flightId   String
+  flight     Flight   @relation(fields: [flightId], references: [id])
+  seatNumber String
+  isBooked   Boolean? @default(false)
+  type       TypeSeat
+  ticket     Ticket?
+}
+
+model Ticket {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  flightId      String
+  flight        Flight       @relation(fields: [flightId], references: [id])
+  customerId    String
+  customer      User         @relation(fields: [customerId], references: [id])
+  seatId        String       @unique
+  seat          FlightSeat   @relation(fields: [seatId], references: [id])
+  bookingDate   DateTime
+  price         BigInt
+  status        StatusTicket
+  tokenMidtrans String?
+}
